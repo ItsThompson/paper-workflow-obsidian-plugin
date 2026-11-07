@@ -12,4 +12,4 @@ export const BASE_FILE_EXTENSION = ".base";
 export const CMD_CREATE_ANNOTATION = "create-paper-annotation";
 export const CMD_CREATE_LITERATURE_MATRIX = "create-literature-matrix";
 
-export const CONTRIBUTION_DEBOUNCE_MS = 750;
+export const CONTRIBUTION_DEBOUNCE_MS = 25;
