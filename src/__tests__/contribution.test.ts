@@ -379,3 +379,100 @@ describe("createContributionSync", () => {
     consoleError.mockRestore();
   });
 });
+
+describe("createContributionSync.reconcile", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const filePath = "general_notes/CATS.md";
+  const debounceMs = 2000;
+
+  it("writes the plain text without waiting for the debounce", async () => {
+    const port = buildNotePort({
+      content: buildPaperBody("**Contribution**: Drifted text."),
+      contribution: "stale value",
+    });
+    const sync = createContributionSync(port, debounceMs);
+
+    await sync.reconcile(filePath);
+
+    expect(port.writeContribution).toHaveBeenCalledWith(
+      filePath,
+      "Drifted text.",
+    );
+  });
+
+  it("does not write when the note is already in step", async () => {
+    const port = buildNotePort({
+      content: buildPaperBody("**Contribution**: Same text."),
+      contribution: "Same text.",
+    });
+    const sync = createContributionSync(port, debounceMs);
+
+    await sync.reconcile(filePath);
+
+    expect(port.writeContribution).not.toHaveBeenCalled();
+  });
+
+  it("does not write when the body has no contribution line", async () => {
+    const port = buildNotePort({
+      content: buildPaperBody("**Note**: nothing here."),
+      contribution: "existing value",
+    });
+    const sync = createContributionSync(port, debounceMs);
+
+    await sync.reconcile(filePath);
+
+    expect(port.writeContribution).not.toHaveBeenCalled();
+  });
+
+  it("drops a pending debounced run instead of reading twice", async () => {
+    const port = buildNotePort({
+      content: buildPaperBody("**Contribution**: Drifted text."),
+      contribution: "stale value",
+    });
+    const sync = createContributionSync(port, debounceMs);
+
+    sync.schedule(filePath);
+    await sync.reconcile(filePath);
+    await vi.advanceTimersByTimeAsync(debounceMs);
+
+    expect(port.readContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("settles at one write across open, own-write modify, and re-open", async () => {
+    const port = buildNotePort({
+      content: buildPaperBody("**Contribution**: New text."),
+      contribution: "stale value",
+    });
+    const sync = createContributionSync(port, debounceMs);
+
+    await sync.reconcile(filePath);
+    expect(port.contributionFor(filePath)).toBe("New text.");
+
+    // The modify event caused by the plugin's own frontmatter write.
+    sync.schedule(filePath);
+    await vi.advanceTimersByTimeAsync(debounceMs);
+
+    await sync.reconcile(filePath);
+
+    expect(port.writeContribution).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves without throwing when the note cannot be read", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const port = buildNotePort({ content: "", contribution: undefined });
+    port.readContent.mockRejectedValue(new Error("file deleted"));
+    const sync = createContributionSync(port, debounceMs);
+
+    await expect(sync.reconcile(filePath)).resolves.toBeUndefined();
+
+    expect(port.writeContribution).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});

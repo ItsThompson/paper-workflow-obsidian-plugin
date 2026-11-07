@@ -141,7 +141,7 @@ Only the first annotation per paper-project pair reaches the matrix, because the
 
 ### 5. Let the contribution field fill itself
 
-You never type the `contribution` frontmatter field. Write the contribution once, in the body, and the plugin copies it into frontmatter as plain text about a second after you save.
+You never type the `contribution` frontmatter field. Write the contribution once, in the body, and the plugin copies it into frontmatter as plain text shortly after you save.
 
 The sync only runs on notes tagged `papers`. It reads the first `**Contribution**:` line in the body and converts the value like this:
 
@@ -156,6 +156,8 @@ The sync only runs on notes tagged `papers`. It reads the first `**Contribution*
 Underscores inside a word are left alone, so `learning_rate` stays `learning_rate`, and a lone `~` or `=` survives. The frontmatter is rewritten only when the plain text actually differs, so saving a note without touching the contribution line does nothing.
 
 Edit the line and the field follows. Delete the line and the field keeps its last value.
+
+Opening a paper note also runs the comparison once, immediately. That repairs drift no save event can deliver: a note edited before the plugin was enabled, or changed while Obsidian was closed. A note that already matches is left untouched, so simply reading a paper never rewrites it.
 
 ### 6. Build a literature matrix
 
@@ -211,6 +213,8 @@ Bases has no join and no rollup, so a paper row cannot read another note's front
 That is why the annotation's `paper` field matters and why the plugin writes it as a wikilink. A frontmatter wikilink counts as a link, so the annotation needs no body.
 
 The contribution sync listens for vault modify events, debounces per file path, and compares the converted body value against cached frontmatter before writing. An unchanged value never triggers a write, and that compare is what stops a write loop. A path is also held in a guard set while the plugin's own write is in flight, so the modify event caused by that write is ignored.
+
+The same comparison runs once when a paper note is opened, with no debounce. Obsidian already reports external edits through `modify`, so this second trigger exists only for drift that predates the session: notes written while the plugin was disabled, or while Obsidian was not running.
 
 ## Settings
 

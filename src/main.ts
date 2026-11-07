@@ -74,6 +74,12 @@ export default class PaperWorkflowPlugin extends Plugin {
         this.handleVaultModify(file);
       }),
     );
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        this.reconcileContribution(file);
+      }),
+    );
+    this.reconcileContribution(this.app.workspace.getActiveFile());
   }
 
   onunload(): void {
@@ -260,6 +266,18 @@ export default class PaperWorkflowPlugin extends Plugin {
     if (!this.isPaperNote(file)) return;
 
     this.contributionSync?.schedule(file.path);
+  }
+
+  /**
+   * Repairs a note that drifted while the plugin was not watching: edited in
+   * another app, pulled by sync, or written while the plugin was disabled.
+   * The modify listener only sees saves that happen while the plugin is loaded.
+   */
+  private reconcileContribution(file: TFile | null): void {
+    if (!file || file.extension !== "md") return;
+    if (!this.isPaperNote(file)) return;
+
+    void this.contributionSync?.reconcile(file.path);
   }
 
   private reportFailure(action: string, error: unknown): void {

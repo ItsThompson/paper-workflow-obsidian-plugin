@@ -58,7 +58,10 @@ export interface ContributionNotePort {
 }
 
 export interface ContributionSync {
+  /** Debounced: use when the note just changed on disk. */
   schedule(filePath: string): void;
+  /** Immediate: use when the note comes into view and any drift must be repaired. */
+  reconcile(filePath: string): Promise<void>;
   dispose(): void;
 }
 
@@ -77,6 +80,14 @@ export function createContributionSync(
 ): ContributionSync {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const writingPaths = new Set<string>();
+
+  function cancelPending(filePath: string): void {
+    const pending = timers.get(filePath);
+    if (pending === undefined) return;
+
+    clearTimeout(pending);
+    timers.delete(filePath);
+  }
 
   async function syncContribution(filePath: string): Promise<void> {
     if (writingPaths.has(filePath)) {
@@ -113,8 +124,7 @@ export function createContributionSync(
 
   return {
     schedule(filePath: string): void {
-      const pending = timers.get(filePath);
-      if (pending !== undefined) clearTimeout(pending);
+      cancelPending(filePath);
 
       timers.set(
         filePath,
@@ -123,6 +133,13 @@ export function createContributionSync(
           void syncContribution(filePath);
         }, debounceMs),
       );
+    },
+
+    async reconcile(filePath: string): Promise<void> {
+      // A pending timer would read the same disk content this call is about to
+      // read, so drop it instead of paying for the work twice.
+      cancelPending(filePath);
+      await syncContribution(filePath);
     },
 
     dispose(): void {
