@@ -1,0 +1,9 @@
+{
+  "id": "paper-workflow",
+  "name": "Paper Workflow",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Annotation and literature matrix tooling for research papers.",
+  "author": "thompsnt",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,28 @@
+{
+  "name": "paper-workflow-obsidian-plugin",
+  "version": "0.1.0",
+  "description": "Annotation and literature matrix tooling for research papers in Obsidian.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit --skipLibCheck"
+  },
+  "keywords": [
+    "obsidian",
+    "papers",
+    "research"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "esbuild": "0.25.5",
+    "obsidian": "latest",
+    "tslib": "2.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.7"
+  }
+}
