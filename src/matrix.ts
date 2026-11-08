@@ -14,13 +14,20 @@ const PROJECT_TAG_PLACEHOLDER = "__PROJECT_TAG__";
  * Mirrors the hand-authored dissertation matrix. Bases has no join or rollup, so
  * the annotation columns read the linked annotation note through `file.backlinks`
  * and need the project tag in both the row filter and the annotation filter.
+ *
+ * The annotation filter also requires the annotation's own `paper` property to
+ * resolve to the row's file. Backlinks hold every note that mentions the paper,
+ * so without that check an annotation for one paper would show up on every
+ * paper its body links to. `list()` accepts a single link or a list of them,
+ * and a missing or non-link `paper` value yields no match instead of a formula
+ * error.
  */
 const LITERATURE_MATRIX_TEMPLATE = `filters:
   and:
     - file.tags.contains("${PAPER_TAG}")
     - file.tags.contains("${PROJECT_TAG_PLACEHOLDER}")
 formulas:
-  ann: file.backlinks.filter(value.asFile().hasTag("${ANNOTATION_TAG}") && value.asFile().hasTag("${PROJECT_TAG_PLACEHOLDER}"))
+  ann: file.backlinks.filter(value.asFile().hasTag("${ANNOTATION_TAG}") && value.asFile().hasTag("${PROJECT_TAG_PLACEHOLDER}") && list(value.asFile().properties.paper).map(value.asFile().path).contains(file.path))
   connection: if(formula.ann.length > 0, formula.ann[0].asFile().properties.connection_to_own_research, "")
   gap: if(formula.ann.length > 0, formula.ann[0].asFile().properties.identified_gap, "")
   annotation: if(formula.ann.length > 0, formula.ann[0], "")

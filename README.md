@@ -195,7 +195,7 @@ The generated view is a wrapping table with an empty sort and one row per paper 
 Open the `.base` file. A paper row shows blank judgement columns for any of these reasons, in order of likelihood:
 
 1. No annotation note exists for that paper-project pair.
-2. The annotation's `paper` field does not name the paper note exactly.
+2. The annotation's `paper` field does not name the paper note exactly, so the matrix cannot match it to the row.
 3. The annotation is missing one of its two tags, or carries the wrong project tag.
 4. Obsidian has not indexed the new annotation yet. Give it a moment.
 
@@ -214,7 +214,9 @@ flowchart TD
     Matrix -->|"annotation columns read file.backlinks"| Ann
 ```
 
-Bases has no join and no rollup, so a paper row cannot read another note's frontmatter directly. The one hook is `file.backlinks`, which lists the notes linking to the row's note. The generated matrix uses it to filter backlinks down to annotation notes carrying the same project tag, then reads `connection_to_own_research` and `identified_gap` from the first match.
+Bases has no join and no rollup, so a paper row cannot read another note's frontmatter directly. The one hook is `file.backlinks`, which lists the notes linking to the row's note. The generated matrix filters those backlinks down to annotation notes that carry the same project tag and whose `paper` property resolves to the row's file, then reads `connection_to_own_research` and `identified_gap` from the first match.
+
+The `paper` check is not optional. A backlink exists for every note that mentions the paper, body links included, so an annotation that cites another paper in its body would otherwise show up on that paper's row as well. Comparing `list(value.asFile().properties.paper).map(value.asFile().path)` against `file.path` accepts one link or a list of them, and a missing or non-link `paper` value yields no match instead of a formula error.
 
 That is why the annotation's `paper` field matters and why the plugin writes it as a wikilink. A frontmatter wikilink counts as a link, so the annotation needs no body.
 

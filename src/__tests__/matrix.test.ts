@@ -42,7 +42,13 @@ describe("buildLiteratureMatrixContent", () => {
 
   it("scopes the annotation lookup to the project tag", () => {
     expect(content).toContain(
-      'ann: file.backlinks.filter(value.asFile().hasTag("paper/annotation") && value.asFile().hasTag("research/dissertation"))',
+      'value.asFile().hasTag("paper/annotation") && value.asFile().hasTag("research/dissertation")',
+    );
+  });
+
+  it("requires the annotation to point at the row's own paper", () => {
+    expect(content).toContain(
+      "ann: file.backlinks.filter(value.asFile().hasTag(\"paper/annotation\") && value.asFile().hasTag(\"research/dissertation\") && list(value.asFile().properties.paper).map(value.asFile().path).contains(file.path))",
     );
   });
 
