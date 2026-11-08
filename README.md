@@ -1,5 +1,11 @@
 # Paper Workflow for Obsidian
 
+<p>
+  <a href="https://0rwx.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://0rwx.com/static/AI-X-dark.svg"><img src="https://0rwx.com/static/AI-X-light.svg" alt="0rwx EXECUTE: Human architected, AI executed" width="64" height="64"></picture></a>
+  <br>
+  <sub><strong>0rwx EXECUTE</strong>: Human architected, AI executed</sub>
+</p>
+
 A local Obsidian plugin for a research reading workflow. It writes the per-project annotation note for a paper, keeps each paper's `contribution` frontmatter field in sync with the note body, and generates the Bases view that reads annotation judgements back into the paper's row.
 
 ## Why this exists
