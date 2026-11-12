@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  hasPaperNoteTag,
   hasPaperTag,
   isResearchTag,
   readFrontmatterTags,
@@ -51,6 +52,20 @@ describe("hasPaperTag", () => {
   it("is false when the papers tag is absent", () => {
     expect(hasPaperTag(["paper", "research/dissertation"])).toBe(false);
     expect(hasPaperTag([])).toBe(false);
+  });
+});
+
+describe("hasPaperNoteTag", () => {
+  it("is true for frontmatter carrying the papers tag", () => {
+    expect(
+      hasPaperNoteTag({ tags: ["papers", "research/dissertation"] }),
+    ).toBe(true);
+  });
+
+  it("is false for frontmatter without the papers tag", () => {
+    expect(hasPaperNoteTag({ tags: ["paper/annotation"] })).toBe(false);
+    expect(hasPaperNoteTag({})).toBe(false);
+    expect(hasPaperNoteTag(undefined)).toBe(false);
   });
 });
 

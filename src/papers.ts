@@ -34,6 +34,12 @@ export function hasPaperTag(tags: readonly string[]): boolean {
   return tags.includes(PAPER_TAG);
 }
 
+export function hasPaperNoteTag(
+  frontmatter: Record<string, unknown> | undefined,
+): boolean {
+  return hasPaperTag(readFrontmatterTags(frontmatter));
+}
+
 export function isResearchTag(tag: string): boolean {
   return (
     tag.startsWith(RESEARCH_TAG_PREFIX) &&

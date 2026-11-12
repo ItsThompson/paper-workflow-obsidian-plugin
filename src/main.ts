@@ -6,14 +6,14 @@ import {
   type Menu,
   type TAbstractFile,
 } from "obsidian";
-import { ProjectPickerModal } from "./annotationModal";
-import { createAnnotationNote, toIsoDate } from "./annotation";
+import { createAnnotationFlow, type AnnotationFlow } from "./annotationFlow";
 import {
   CONTRIBUTION_DEBOUNCE_MS,
   CONTRIBUTION_FRONTMATTER_KEY,
+  CMD_ADD_TO_TAXONOMY,
   CMD_CREATE_ANNOTATION,
   CMD_CREATE_LITERATURE_MATRIX,
-  PAPER_TAG,
+  CMD_CREATE_TAXONOMY_TABLE,
 } from "./constants";
 import {
   createContributionSync,
@@ -25,14 +25,15 @@ import {
   type LiteratureMatrixInput,
 } from "./matrix";
 import { LiteratureMatrixWizardModal } from "./matrixWizard";
-import { hasPaperTag, readFrontmatterTags, uniqueResearchTags } from "./papers";
-import { collectProjectChoices, readStoredProjects, registerProject } from "./projects";
+import { hasPaperNoteTag } from "./papers";
+import { readStoredProjects, registerProject } from "./projects";
 import {
   DEFAULT_SETTINGS,
   PaperWorkflowSettingTab,
   type PaperWorkflowSettings,
 } from "./settings";
-import type { FileCreationPort, Project } from "./types";
+import { createTaxonomyFlow, type TaxonomyFlow } from "./taxonomyFlow";
+import type { FileCreationPort } from "./types";
 
 export default class PaperWorkflowPlugin extends Plugin {
   settings: PaperWorkflowSettings = DEFAULT_SETTINGS;
@@ -43,11 +44,28 @@ export default class PaperWorkflowPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new PaperWorkflowSettingTab(this.app, this));
 
+    const reportFailure = (action: string, error: unknown): void => {
+      this.reportFailure(action, error);
+    };
+
+    const annotationFlow = createAnnotationFlow(
+      this.app,
+      this.createFilePort(),
+      () => this.settings.projects,
+      reportFailure,
+    );
+
+    const taxonomyFlow = createTaxonomyFlow(
+      this.app,
+      this.createFilePort(),
+      reportFailure,
+    );
+
     this.addCommand({
       id: CMD_CREATE_ANNOTATION,
       name: "Create paper annotation",
       callback: () => {
-        this.startAnnotation(this.app.workspace.getActiveFile());
+        annotationFlow.start(this.app.workspace.getActiveFile());
       },
     });
 
@@ -59,9 +77,26 @@ export default class PaperWorkflowPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: CMD_ADD_TO_TAXONOMY,
+      name: "Add to taxonomy",
+      callback: () => {
+        taxonomyFlow.addToTaxonomy(this.app.workspace.getActiveFile());
+      },
+    });
+
+    this.addCommand({
+      id: CMD_CREATE_TAXONOMY_TABLE,
+      name: "Create taxonomy classification table",
+      callback: () => {
+        taxonomyFlow.createTaxonomyTable();
+      },
+    });
+
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, _editor, info) => {
-        this.addAnnotationMenuItem(menu, info);
+        this.addAnnotationMenuItem(menu, info, annotationFlow);
+        this.addTaxonomyMenuItem(menu, info, taxonomyFlow);
       }),
     );
 
@@ -100,12 +135,14 @@ export default class PaperWorkflowPlugin extends Plugin {
   }
 
   private isPaperNote(file: TFile): boolean {
-    const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-
-    return hasPaperTag(readFrontmatterTags(frontmatter));
+    return hasPaperNoteTag(this.app.metadataCache.getFileCache(file)?.frontmatter);
   }
 
-  private addAnnotationMenuItem(menu: Menu, info: MarkdownFileInfo): void {
+  private addAnnotationMenuItem(
+    menu: Menu,
+    info: MarkdownFileInfo,
+    annotationFlow: AnnotationFlow,
+  ): void {
     const file = info.file;
     if (!file || !this.isPaperNote(file)) return;
 
@@ -114,73 +151,27 @@ export default class PaperWorkflowPlugin extends Plugin {
         .setTitle("Create paper annotation")
         .setIcon("file-plus")
         .onClick(() => {
-          this.startAnnotation(file);
+          annotationFlow.start(file);
         }),
     );
   }
 
-  private startAnnotation(file: TFile | null): void {
-    if (!file) {
-      new Notice("Open a paper note first.");
-      return;
-    }
+  private addTaxonomyMenuItem(
+    menu: Menu,
+    info: MarkdownFileInfo,
+    taxonomyFlow: TaxonomyFlow,
+  ): void {
+    const file = info.file;
+    if (!file || file.extension !== "md") return;
 
-    if (!this.isPaperNote(file)) {
-      new Notice(
-        `"${file.basename}" is not a paper note. Add "${PAPER_TAG}" to its frontmatter tags.`,
-      );
-      return;
-    }
-
-    const projects = collectProjectChoices(
-      this.collectVaultResearchTags(),
-      this.settings.projects,
+    menu.addItem((item) =>
+      item
+        .setTitle("Add to taxonomy")
+        .setIcon("tags")
+        .onClick(() => {
+          taxonomyFlow.addToTaxonomy(file);
+        }),
     );
-
-    if (projects.length === 0) {
-      new Notice(
-        "No research projects found. Tag a note with research/<project> or add a project in settings.",
-      );
-      return;
-    }
-
-    new ProjectPickerModal(this.app, projects, (project) => {
-      void this.createAnnotation(file, project);
-    }).open();
-  }
-
-  private collectVaultResearchTags(): string[] {
-    const tags = this.app.vault.getMarkdownFiles().flatMap((file) => {
-      const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-
-      return readFrontmatterTags(frontmatter);
-    });
-
-    return uniqueResearchTags(tags);
-  }
-
-  private async createAnnotation(file: TFile, project: Project): Promise<void> {
-    try {
-      const result = await createAnnotationNote(
-        {
-          paperTitle: file.basename,
-          paperFolderPath: file.parent?.path ?? "",
-          projectTag: project.tag,
-          projectTitle: project.title,
-          todayIso: toIsoDate(new Date()),
-        },
-        this.createFilePort(),
-      );
-
-      await this.app.workspace.getLeaf(false).openFile(result.file);
-      new Notice(
-        result.status === "created"
-          ? `Created ${result.path}.`
-          : `${result.path} already exists.`,
-      );
-    } catch (error) {
-      this.reportFailure("create annotation", error);
-    }
   }
 
   private openLiteratureMatrixWizard(): void {
